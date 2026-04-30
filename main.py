@@ -18,11 +18,12 @@ genai.configure(api_key=os.environ["GEMINI_API_KEY"])
 
 # gemini-2.5-flash-lite: free tier, 15 RPM, 1000 req/day — more than enough
 # for the 996-case eval since we batch all priors per case into one call
-# UPDATE: Use the April 2026 stable engine for better reasoning
 model = genai.GenerativeModel(
     model_name="gemini-3.1-flash-lite-preview", 
     generation_config={"temperature": 0}
 )
+
+cache = {}
 
 PROMPT = """You are a radiology logic engine. Your goal is to identify relevant priors.
 
