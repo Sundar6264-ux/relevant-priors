@@ -18,36 +18,27 @@ genai.configure(api_key=os.environ["GEMINI_API_KEY"])
 
 # gemini-2.5-flash-lite: free tier, 15 RPM, 1000 req/day — more than enough
 # for the 996-case eval since we batch all priors per case into one call
+# UPDATE: Use the April 2026 stable engine for better reasoning
 model = genai.GenerativeModel(
-    model_name="gemini-2.5-flash-lite-preview-06-17",
-    generation_config={"temperature": 0}  # deterministic, we want consistent verdicts
+    model_name="gemini-3.1-flash-lite-preview", 
+    generation_config={"temperature": 0}
 )
 
-# cache keyed on (current_desc, prior_desc) — radiology names repeat a ton
-# across patients, so this cuts down API calls significantly on the full eval
-cache = {}
+PROMPT = """You are a radiology logic engine. Your goal is to identify relevant priors.
 
-# prompt went through a few versions. main lesson: have to explicitly say
-# cross-modality is fine (CT HEAD is relevant for MRI BRAIN — same region).
-# first version was too strict and tanked accuracy on those cases.
-PROMPT = """You help radiologists decide which prior imaging studies are worth showing 
-when they read a new scan.
+CRITICAL RULES:
+1. REGIONAL BOUNDARY: The brain is clinically isolated from the trunk. 
+   - BRAIN/HEAD priors are NOT relevant for CHEST, ABDOMEN, or PELVIS studies.
+   - CHEST/ABDOMEN priors are NOT relevant for BRAIN/HEAD studies.
+2. MODALITY IGNORED: CT is relevant for MRI if they cover the same body part.
+3. NEARBY REGIONS: Cervical Spine (Neck) is relevant for Brain studies.
 
-RULES FOR RELEVANCE:
-1. SAME REGION: A prior is RELEVANT if it covers the same or an immediately adjacent body region.
-2. MODALITY INDEPENDENT: Modality DOES NOT have to match. (e.g., CT HEAD is highly relevant for MRI BRAIN).
-3. REGIONAL BOUNDARIES:
-   - HEAD/BRAIN: Relevant for other HEAD/BRAIN or CERVICAL SPINE (Neck) studies.
-   - TRUNK (CHEST/ABDOMEN/PELVIS): Relevant for each other. A Chest CT and Abdomen CT are often related.
-   - EXTREMITIES: Relevant only for the same limb (e.g., a Knee prior for a Femur study).
-   - EXPLICIT SEPARATION: BRAIN imaging is NOT relevant for CHEST, ABDOMEN, or PELVIS studies. CHEST/BODY imaging is NOT relevant for BRAIN studies.
-4. LEAN TOWARD RELEVANT: If a study is borderline (e.g., Neck vs. Chest), mark as True. 
+EXAMPLES:
+- Current: [MRI BRAIN], Priors: [1. CT HEAD, 2. X-RAY CHEST] -> [true, false]
+- Current: [CT CHEST], Priors: [1. MRI BRAIN, 2. CT ABDOMEN] -> [false, true]
+- Current: [MRI KNEE], Priors: [1. X-RAY KNEE, 2. MRI BRAIN] -> [true, false]
 
-You'll get a current study and a numbered list of priors.
-Reply with ONLY a JSON array of true/false, one per prior, same order.
-Nothing else. No explanation. No markdown. Just the array.
-
-Example: [true, false, true]"""
+Reply ONLY with a JSON array of booleans. No markdown, no text."""
 
 
 def make_key(current_desc, prior_desc):
