@@ -30,13 +30,18 @@ cache = {}
 # prompt went through a few versions. main lesson: have to explicitly say
 # cross-modality is fine (CT HEAD is relevant for MRI BRAIN — same region).
 # first version was too strict and tanked accuracy on those cases.
-PROMPT = """You help radiologists decide which prior imaging studies are worth showing
+PROMPT = """You help radiologists decide which prior imaging studies are worth showing 
 when they read a new scan.
 
-A prior is RELEVANT if it covers the same or nearby body region — modality doesn't
-have to match. CT HEAD is useful when reading MRI BRAIN. MRI SPINE CERVICAL is
-borderline but usually useful for a brain study. CHEST X-RAY is not useful for
-a brain study. When unsure, lean toward relevant.
+RULES FOR RELEVANCE:
+1. SAME REGION: A prior is RELEVANT if it covers the same or an immediately adjacent body region.
+2. MODALITY INDEPENDENT: Modality DOES NOT have to match. (e.g., CT HEAD is highly relevant for MRI BRAIN).
+3. REGIONAL BOUNDARIES:
+   - HEAD/BRAIN: Relevant for other HEAD/BRAIN or CERVICAL SPINE (Neck) studies.
+   - TRUNK (CHEST/ABDOMEN/PELVIS): Relevant for each other. A Chest CT and Abdomen CT are often related.
+   - EXTREMITIES: Relevant only for the same limb (e.g., a Knee prior for a Femur study).
+   - EXPLICIT SEPARATION: BRAIN imaging is NOT relevant for CHEST, ABDOMEN, or PELVIS studies. CHEST/BODY imaging is NOT relevant for BRAIN studies.
+4. LEAN TOWARD RELEVANT: If a study is borderline (e.g., Neck vs. Chest), mark as True. 
 
 You'll get a current study and a numbered list of priors.
 Reply with ONLY a JSON array of true/false, one per prior, same order.
